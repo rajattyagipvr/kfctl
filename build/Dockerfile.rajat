@@ -1,0 +1,39 @@
+## rajat
+## amended the file to add few additional binaries like awscli, eksctl and aws-autneicator
+FROM aipipeline/kubeflow-operator:latest AS operator
+
+FROM abdennour/eksctl:0.29.2-aws-1.18.154-kubectl-v1.19.2 AS eksctl
+
+FROM alpine:3.6 AS AWS
+RUN apk -v --no-cache add \
+        python \
+        py-pip \
+        groff \
+        less \
+        mailcap \
+        curl \
+        && \
+    pip install --upgrade awscli==1.16.206 s3cmd==2.0.2 python-magic && \
+    apk -v --purge del py-pip
+
+
+RUN curl -L https://amazon-eks.s3-us-west-2.amazonaws.com/1.14.6/2019-08-22/bin/linux/amd64/aws-iam-authenticator -o /usr/local/bin/aws-iam-authenticator \
+  & wait \
+  && chmod +x /usr/local/bin/aws-iam-authenticator 
+
+
+COPY --from=eksctl  /usr/local/bin/eksctl /usr/local/bin/eksctl
+
+
+ENV OPERATOR=/usr/local/bin/kfctl \
+    USER_UID=1001 \
+    USER_NAME=kfctl \
+    HOMEDIR=/homedir
+
+COPY --from=operator /usr/local/bin/kfctl /usr/local/bin/kfctl
+COPY --from=operator /etc/passwd /etc/passwd
+COPY --from=operator ${HOME} ${HOME}
+
+ENTRYPOINT ["/usr/local/bin/kfctl"]
+
+USER ${USER_UID}
